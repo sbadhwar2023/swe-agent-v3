@@ -1,0 +1,14 @@
+README.md
+setup.py
+src/sweagent/__init__.py
+src/sweagent/agent.py
+src/sweagent/config.py
+src/sweagent/permissions.py
+src/sweagent/todos.py
+src/sweagent/tools.py
+src/sweagent.egg-info/PKG-INFO
+src/sweagent.egg-info/SOURCES.txt
+src/sweagent.egg-info/dependency_links.txt
+src/sweagent.egg-info/entry_points.txt
+src/sweagent.egg-info/requires.txt
+src/sweagent.egg-info/top_level.txt

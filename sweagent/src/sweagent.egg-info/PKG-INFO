@@ -1,0 +1,237 @@
+Metadata-Version: 2.1
+Name: sweagent
+Version: 1.0.0
+Summary: A powerful LangGraph-based multi-agent task execution system for software engineering
+Home-page: https://github.com/your-org/sweagent
+Author: Your Name
+Author-email: your.email@example.com
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+Provides-Extra: notebook
+Provides-Extra: analysis
+
+# SWE Agent - Software Engineering Agent
+
+A powerful LangGraph-based multi-agent task execution system designed for software engineering automation. SWE Agent intelligently decomposes complex tasks, executes them using specialized tools, and provides comprehensive reporting.
+
+## Features
+
+- 🤖 **Intelligent Task Decomposition**: Automatically breaks down complex tasks into manageable subtasks
+- 🔧 **Rich Tool Ecosystem**: File operations, code analysis, web requests, system commands
+- 🔐 **Permission Management**: Configurable security levels (safe, elevated, admin)
+- 📝 **Todo Tracking**: Real-time progress monitoring with visual updates  
+- 🎯 **Smart Execution**: Avoids over-decomposition of simple tasks
+- 💾 **Memory Support**: Optional SQLite checkpointing for conversation persistence
+- ⚡ **Interactive Mode**: User control with pause/resume/stop capabilities
+
+## Quick Start
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd sweagent
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set your Anthropic API key
+export ANTHROPIC_API_KEY="your-api-key-here"
+```
+
+### Basic Usage
+
+```bash
+# Simple task execution
+python -m sweagent "list files in current directory"
+
+# Interactive mode with elevated permissions
+python -m sweagent --interactive --permission elevated "create a Flask web app"
+
+# Using a configuration file
+python -m sweagent --config config.yaml "analyze code quality"
+```
+
+### Programmatic Usage
+
+```python
+from sweagent import LangGraphTaskAgent, UserConfig
+
+# Configure the agent
+config = UserConfig(
+    permission_level="elevated",
+    interactive_mode=True,
+    show_todo_updates=True
+)
+
+# Initialize agent
+agent = LangGraphTaskAgent(
+    anthropic_api_key="your-api-key",
+    config=config
+)
+
+# Execute a task
+result = agent.execute_task(
+    "Create a Python web scraper for news articles",
+    context={"target_sites": ["example.com"]}
+)
+
+print(f"Success rate: {result['success_rate']:.1%}")
+```
+
+## Configuration
+
+### Permission Levels
+
+- **`safe`**: Read-only operations, basic commands (ls, pwd, git status)
+- **`elevated`**: File creation/editing, package installation, code execution  
+- **`admin`**: System administration, file deletion, service management
+
+### Configuration File Example
+
+```yaml
+# config.yaml
+task_description: "Analyze and refactor the codebase"
+interactive_mode: true
+permission_level: "elevated"
+auto_approve_safe_operations: true
+show_todo_updates: true
+max_iterations: 15
+output_format: "detailed"
+working_directory: "."
+allowed_file_patterns: 
+  - "*.py"
+  - "*.js" 
+  - "*.md"
+```
+
+Generate a sample config:
+```bash
+python -m sweagent --create-config sample-config.yaml
+```
+
+## Architecture
+
+SWE Agent uses a LangGraph workflow with four main phases:
+
+1. **Planning**: Analyzes the task and creates execution strategy
+2. **Decomposition**: Breaks task into atomic, executable subtasks  
+3. **Execution**: Runs subtasks using appropriate tools with verification
+4. **Aggregation**: Combines results into comprehensive final report
+
+### Available Tools
+
+- **File Operations**: read, write, edit, search, analyze
+- **Directory Management**: list, create, navigate
+- **Code Analysis**: complexity metrics, pattern matching  
+- **System Commands**: bash execution with permission controls
+- **Web Requests**: HTTP operations for external APIs
+- **Multi-Edit**: Batch file modifications
+
+## Advanced Features
+
+### Interactive Controls
+
+During execution, use `Ctrl+C` to access controls:
+- Pause and resume execution
+- Stop gracefully  
+- Continue running
+
+### Task Complexity Detection
+
+SWE Agent automatically detects simple vs complex tasks:
+
+- **Simple**: "list files" → Single `directory_list_tool` call
+- **Complex**: "build web app" → Multiple subtasks (setup, routing, testing, etc.)
+
+### Memory and Persistence
+
+Optional SQLite checkpointing enables:
+- Conversation history
+- Task resumption after interruption
+- Context preservation across sessions
+
+## Examples
+
+### Development Workflow
+```bash
+# Code analysis
+python -m sweagent "analyze code quality and suggest improvements"
+
+# Bug fixing  
+python -m sweagent --permission elevated "fix the authentication bug in login.py"
+
+# Feature development
+python -m sweagent "add user registration endpoint to the Flask app"
+```
+
+### DevOps Tasks
+```bash
+# Environment setup
+python -m sweagent --permission admin "setup development environment for Python web app"
+
+# Deployment preparation
+python -m sweagent "prepare application for production deployment"
+```
+
+## CLI Reference
+
+```
+usage: sweagent [-h] [--config CONFIG] [--create-config PATH] 
+                [--interactive] [--non-interactive] 
+                [--permission {safe,elevated,admin}]
+                [--show-todos] [--hide-todos]
+                [--output-format {minimal,standard,detailed}]
+                [--max-iterations N] [--working-dir PATH]
+                [task]
+
+positional arguments:
+  task                  Task description to execute
+
+optional arguments:
+  -h, --help           show help message and exit
+  --config CONFIG      Path to configuration file (YAML or JSON)
+  --create-config PATH Create sample configuration file
+  --interactive        Enable interactive mode
+  --non-interactive    Disable interactive mode  
+  --permission LEVEL   Set permission level (safe/elevated/admin)
+  --show-todos         Show todo list updates
+  --hide-todos         Hide todo list updates
+  --output-format FMT  Output format (minimal/standard/detailed)
+  --max-iterations N   Maximum number of iterations
+  --working-dir PATH   Working directory for operations
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass
+5. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details
+
+## Support
+
+- 📖 [Documentation](docs/)
+- 🐛 [Issue Tracker](https://github.com/your-org/sweagent/issues)
+- 💬 [Discussions](https://github.com/your-org/sweagent/discussions)
+

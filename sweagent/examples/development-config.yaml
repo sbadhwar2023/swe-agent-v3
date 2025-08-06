@@ -1,0 +1,20 @@
+# Development Configuration
+# This configuration allows file creation and code execution
+
+task_description: "Implement user authentication for the web application"
+interactive_mode: true
+permission_level: "elevated"
+auto_approve_safe_operations: true
+show_todo_updates: true
+max_iterations: 15
+output_format: "detailed"
+working_directory: "./src"
+allowed_file_patterns:
+  - "*.py"
+  - "*.js"
+  - "*.html"
+  - "*.css"
+  - "*.json"
+  - "*.yaml"
+  - "*.md"
+  - "*.sql"

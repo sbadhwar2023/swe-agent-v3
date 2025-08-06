@@ -1,0 +1,18 @@
+# Basic SWE Agent Configuration
+# This configuration provides safe, read-only operations
+
+task_description: "Analyze the current codebase structure"
+interactive_mode: true
+permission_level: "safe"
+auto_approve_safe_operations: true
+show_todo_updates: true
+max_iterations: 10
+output_format: "detailed"
+working_directory: "."
+allowed_file_patterns:
+  - "*.py"
+  - "*.md"
+  - "*.txt"
+  - "*.json"
+  - "*.yaml"
+  - "*.yml"
