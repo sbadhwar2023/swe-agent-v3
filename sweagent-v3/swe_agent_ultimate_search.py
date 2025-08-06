@@ -13,6 +13,7 @@ import datetime
 import requests
 import subprocess
 from typing import Dict, List, Any, Optional
+from duckduckgo_search import DDGS
 from dataclasses import dataclass, field
 from pathlib import Path
 from anthropic import Anthropic
@@ -1118,115 +1119,86 @@ Continue building on this comprehensive progress."""
         except Exception as e:
             return {"success": False, "error": f"Failed to fetch {url}: {str(e)}"}
 
+def _execute_web_search(tool_input: Dict[str, Any]) -> Dict[str, Any]:
+    """Enhanced web search using DuckDuckGo with result formatting"""
+    try:
+        query = tool_input["query"]
+        num_results = tool_input.get("num_results", 5)
+
+        print(f"  🔍 Searching: {query}")
+
+        results = []
+        with DDGS() as ddgs:
+            for i, result in enumerate(ddgs.text(query, max_results=num_results)):
+                results.append(result)
+                if i + 1 >= num_results:
+                    break
+
+        if not results:
+            return {
+                "success": False,
+                "error": "No results found or query failed."
+            }
+
+        formatted_results = "\n\n".join(
+            [f"{i+1}. [{res['title']}]({res['href']})\n{res['body']}"
+             for i, res in enumerate(results)]
+        )
+
+        return {
+            "success": True,
+            "output": f"🔍 Web search results for '{query}':\n\n{formatted_results}",
+            "query": query,
+            "placeholder": False
+        }
+
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def _execute_notebook_edit(self, tool_input: Dict[str, Any]) -> Dict[str, Any]:
+    """Enhanced Jupyter notebook operations"""
+    try:
+        command = tool_input["command"]
+        path = tool_input["path"]
+
+        if command == "create":
+            notebook = {
+                "cells": [],
+                "metadata": {
+                    "kernelspec": {
+                        "display_name": "Python 3",
+                        "language": "python",
+                        "name": "python3"
+                    }
+                },
+                "nbformat": 4,
+                "nbformat_minor": 5
+            }
+            return {"success": True, "output": notebook}
+
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
     def _execute_web_search(self, tool_input: Dict[str, Any]) -> Dict[str, Any]:
-        """Enhanced web search using DuckDuckGo (no API key required)"""
+        """Enhanced web search with result formatting"""
         try:
             query = tool_input["query"]
             num_results = tool_input.get("num_results", 5)
 
             print(f"  🔍 Searching: {query}")
 
-            # Use DuckDuckGo instant answer API (no key required)
-            search_url = "https://api.duckduckgo.com/"
-            params = {
-                'q': query,
-                'format': 'json',
-                'no_redirect': '1',
-                'no_html': '1',
-                'skip_disambig': '1'
-            }
-
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-
-            response = requests.get(search_url, params=params, headers=headers, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-
-            # Extract useful information
-            results = []
-            
-            # Abstract/instant answer
-            if data.get('Abstract'):
-                results.append({
-                    'title': 'Instant Answer',
-                    'snippet': data['Abstract'],
-                    'url': data.get('AbstractURL', ''),
-                    'source': data.get('AbstractSource', 'DuckDuckGo')
-                })
-
-            # Related topics
-            for topic in data.get('RelatedTopics', [])[:num_results-1]:
-                if isinstance(topic, dict) and 'Text' in topic:
-                    results.append({
-                        'title': topic.get('Text', '')[:100] + '...',
-                        'snippet': topic.get('Text', ''),
-                        'url': topic.get('FirstURL', ''),
-                        'source': 'Related Topic'
-                    })
-
-            # If no results from DuckDuckGo, try a fallback approach
-            if not results:
-                # Fallback: suggest using web_fetch with specific URLs
-                suggestions = self._get_search_suggestions(query)
-                return {
-                    "success": True,
-                    "output": f"🔍 Search: '{query}'\n\n📝 No direct results from DuckDuckGo API.\n\nSuggested approach:\n{suggestions}",
-                    "query": query,
-                    "suggestions": True
-                }
-
-            # Format results
-            output = f"🔍 Web search for '{query}' ({len(results)} results):\n\n"
-            for i, result in enumerate(results, 1):
-                output += f"{i}. **{result['title']}**\n"
-                output += f"   {result['snippet'][:200]}{'...' if len(result['snippet']) > 200 else ''}\n"
-                if result['url']:
-                    output += f"   🔗 {result['url']}\n"
-                output += f"   📚 Source: {result['source']}\n\n"
-
+            # Placeholder for actual search implementation
+            # In production, would integrate with search APIs
             return {
                 "success": True,
-                "output": output,
-                "results": results,
+                "output": f"🔍 Web search for '{query}' would return {num_results} results\n\nNote: This is a placeholder. In production, would integrate with:\n- Google Custom Search API\n- Bing Search API\n- DuckDuckGo API\n\nFor development, use web_fetch with specific URLs for documentation.",
                 "query": query,
-                "count": len(results)
+                "placeholder": True
             }
 
-        except requests.exceptions.RequestException as e:
-            return {"success": False, "error": f"Network error during search: {str(e)}"}
         except Exception as e:
-            return {"success": False, "error": f"Search failed: {str(e)}"}
-
-    def _get_search_suggestions(self, query: str) -> str:
-        """Generate search suggestions based on query"""
-        suggestions = ""
-        
-        # Programming-related suggestions
-        if any(term in query.lower() for term in ['python', 'javascript', 'code', 'programming', 'api']):
-            suggestions += "- Use web_fetch with official documentation URLs\n"
-            suggestions += "- Try Stack Overflow: https://stackoverflow.com/search?q=" + query.replace(' ', '+') + "\n"
-            suggestions += "- Check official docs for the technology mentioned\n"
-        
-        # Error-related suggestions  
-        elif any(term in query.lower() for term in ['error', 'exception', 'bug', 'fix']):
-            suggestions += "- Search Stack Overflow for this specific error\n"
-            suggestions += "- Check GitHub issues for related projects\n"
-            suggestions += "- Look at official troubleshooting guides\n"
-        
-        # Tutorial/how-to suggestions
-        elif any(term in query.lower() for term in ['how to', 'tutorial', 'guide', 'example']):
-            suggestions += "- Check official documentation tutorials\n" 
-            suggestions += "- Look for GitHub repositories with examples\n"
-            suggestions += "- Search for blog posts or developer guides\n"
-        
-        else:
-            suggestions += f"- Try web_fetch with specific URLs related to '{query}'\n"
-            suggestions += "- Search on specific platforms (GitHub, Stack Overflow, official docs)\n"
-            suggestions += "- Break down the query into more specific terms\n"
-            
-        return suggestions
+            return {"success": False, "error": str(e)}
 
     def _execute_notebook_edit(self, tool_input: Dict[str, Any]) -> Dict[str, Any]:
         """Enhanced Jupyter notebook operations"""
