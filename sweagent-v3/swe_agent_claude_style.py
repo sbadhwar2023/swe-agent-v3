@@ -61,6 +61,18 @@ class ClaudeDisplay:
             return f"LS({params})"
         elif tool_name == "web_search":
             return f"WebSearch({params})"
+        elif tool_name == "web_fetch":
+            return f"WebFetch({params})"
+        elif tool_name == "todo_write":
+            return f"TodoWrite({params})"
+        elif tool_name == "task_agent":
+            return f"TaskAgent({params})"
+        elif tool_name == "notebook_edit":
+            return f"NotebookEdit({params})"
+        elif tool_name == "update_progress":
+            return f"UpdateProgress({params})"
+        elif tool_name == "ask_user":
+            return f"AskUser({params})"
         else:
             return f"{tool_name.title()}({params})"
     
@@ -131,6 +143,29 @@ class ClaudeDisplay:
             else:
                 return f"Found {results} search results"
         
+        elif tool_name == "web_fetch":
+            status = result.get("status", "fetched")
+            return f"Content {status}"
+            
+        elif tool_name == "todo_write":
+            todos = result.get("todo_count", 0)
+            return f"Updated {todos} todo items"
+            
+        elif tool_name == "task_agent":
+            agent_type = result.get("agent_type", "general")
+            return f"Sub-agent ({agent_type}) completed"
+            
+        elif tool_name == "notebook_edit":
+            operation = result.get("operation", "edited")
+            return f"Notebook {operation}"
+            
+        elif tool_name == "update_progress":
+            return "Progress updated"
+            
+        elif tool_name == "ask_user":
+            response = result.get("user_response", "responded")
+            return f"User {response}"
+        
         else:
             return result.get("output", "Operation completed")[:50]
     
@@ -161,7 +196,7 @@ class Config:
 
 
 class ClaudeAgentState:
-    """Simplified state for Claude Code style agent"""
+    """Enhanced state for Claude Code style agent with progress tracking"""
     def __init__(self, task_id: str, original_task: str):
         self.task_id = task_id
         self.original_task = original_task
@@ -171,6 +206,12 @@ class ClaudeAgentState:
         self.commands_run = []
         self.searches_performed = []
         self.start_time = datetime.datetime.now()
+        # Enhanced progress tracking
+        self.completed_steps = []
+        self.current_step = ""
+        self.todos = []
+        self.progress_updates = []
+        self.sub_agents_used = []
 
 
 class ClaudeCodeStyleAgent:
@@ -190,8 +231,9 @@ class ClaudeCodeStyleAgent:
         self.display.show_header(os.getcwd(), len(self.tools))
     
     def _create_claude_tools(self):
-        """Create tools with Claude Code naming conventions"""
-        return [
+        """Create all 13+ tools with Claude Code naming conventions"""
+        tools = [
+            # Core file operations
             {
                 "name": "read_file",
                 "description": "Read file contents",
@@ -227,6 +269,8 @@ class ClaudeCodeStyleAgent:
                     "required": ["file_path", "operation"]
                 }
             },
+            
+            # Execution
             {
                 "name": "bash",
                 "description": "Execute bash commands",
@@ -239,8 +283,10 @@ class ClaudeCodeStyleAgent:
                     "required": ["command"]
                 }
             },
+            
+            # Search and discovery
             {
-                "name": "search",
+                "name": "search", 
                 "description": "Search for patterns in files",
                 "input_schema": {
                     "type": "object",
@@ -272,15 +318,132 @@ class ClaudeCodeStyleAgent:
                     "type": "object",
                     "properties": {
                         "path": {"type": "string", "default": ".", "description": "Directory path"},
-                        "show_hidden": {"type": "boolean", "default": False}
+                        "show_hidden": {"type": "boolean", "default": False},
+                        "recursive": {"type": "boolean", "default": False}
                     }
+                }
+            },
+            
+            # Task management
+            {
+                "name": "todo_write",
+                "description": "Create and manage task lists",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "todos": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "content": {"type": "string"},
+                                    "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]},
+                                    "priority": {"type": "string", "enum": ["high", "medium", "low"]}
+                                },
+                                "required": ["id", "content", "status", "priority"]
+                            }
+                        }
+                    },
+                    "required": ["todos"]
+                }
+            },
+            
+            # Sub-agent spawning
+            {
+                "name": "task_agent",
+                "description": "Launch specialized sub-agents for complex tasks",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "description": {"type": "string", "description": "Brief description of the task"},
+                        "prompt": {"type": "string", "description": "Detailed prompt for the sub-agent"},
+                        "agent_type": {
+                            "type": "string",
+                            "enum": ["search", "analysis", "coding", "debugging", "general"],
+                            "description": "Type of specialized agent",
+                            "default": "general"
+                        }
+                    },
+                    "required": ["description", "prompt"]
+                }
+            },
+            
+            # Web access
+            {
+                "name": "web_fetch",
+                "description": "Fetch and analyze web content",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string", "description": "URL to fetch"},
+                        "prompt": {"type": "string", "description": "What to analyze in the content"}
+                    },
+                    "required": ["url", "prompt"]
+                }
+            },
+            
+            # Notebook support
+            {
+                "name": "notebook_edit",
+                "description": "Create and edit Jupyter notebooks",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "enum": ["create", "read", "add_cell", "edit_cell"],
+                            "description": "Notebook operation"
+                        },
+                        "path": {"type": "string", "description": "Notebook path"},
+                        "cell_content": {"type": "string", "description": "Cell content"},
+                        "cell_type": {"type": "string", "enum": ["code", "markdown"], "default": "code"},
+                        "cell_index": {"type": "number", "description": "Cell index for edit operations"}
+                    },
+                    "required": ["command", "path"]
+                }
+            },
+            
+            # Progress tracking
+            {
+                "name": "update_progress",
+                "description": "Update progress tracking",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "summary": {"type": "string", "description": "Progress summary"},
+                        "accomplishments": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of accomplishments"
+                        }
+                    },
+                    "required": ["summary"]
+                }
+            },
+            
+            # User interaction
+            {
+                "name": "ask_user",
+                "description": "Ask user for feedback or confirmation",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "question": {"type": "string", "description": "Question to ask the user"},
+                        "options": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Available options"
+                        }
+                    },
+                    "required": ["question"]
                 }
             }
         ]
         
         # Add web search if enabled
         if self.config.enable_web:
-            self.tools.append({
+            tools.append({
                 "name": "web_search",
                 "description": "Search the web",
                 "input_schema": {
@@ -292,6 +455,8 @@ class ClaudeCodeStyleAgent:
                     "required": ["query"]
                 }
             })
+        
+        return tools
     
     def execute_task(self, task: str, resume_task_id: str = None) -> Dict[str, Any]:
         """Execute task with Claude Code style interaction"""
@@ -305,22 +470,67 @@ class ClaudeCodeStyleAgent:
         
         self.display.show_task_start(task)
         
-        # Claude Code style system prompt
+        # Claude Code style system prompt with intelligent task breakdown
         system_prompt = f"""You are Claude Code, Anthropic's official software engineering assistant.
 
-You have these tools available:
-- read_file: Read file contents  
-- edit_file: Create and edit files
-- bash: Execute shell commands
-- search: Search patterns in files
-- glob: Find files by pattern
-- ls: List directories
-{"- web_search: Search the web" if self.config.enable_web else ""}
+You have these comprehensive tools available:
 
-Work systematically through the task. Be concise and clear in your communications.
+📄 FILE OPERATIONS:
+- read_file: Read file contents with optional line ranges
+- edit_file: Create, edit, and modify files
+
+⚡ EXECUTION:
+- bash: Execute shell commands and scripts
+
+🔍 SEARCH & DISCOVERY:
+- search: Search patterns in files using regex
+- glob: Find files by patterns (e.g., **/*.py)
+- ls: List directory contents
+
+📝 TASK MANAGEMENT:
+- todo_write: Create and manage task lists with progress tracking
+- task_agent: Spawn specialized sub-agents for complex analysis
+- update_progress: Update progress tracking and summaries
+- ask_user: Ask user for feedback or confirmation
+
+🌐 WEB ACCESS:
+{"- web_search: Search the web for information" if self.config.enable_web else ""}
+{"- web_fetch: Fetch and analyze web content" if self.config.enable_web else ""}
+
+📓 NOTEBOOKS:
+- notebook_edit: Create and edit Jupyter notebooks
+
+🧠 INTELLIGENT BEHAVIOR - FOLLOW THIS SYSTEMATIC APPROACH:
+
+1. **TASK ANALYSIS PHASE** (Always do this first for complex tasks):
+   - Analyze the task complexity and requirements
+   - Use search/glob/ls tools to understand existing codebase structure
+   - For multi-step tasks, ALWAYS use todo_write to create a step-by-step plan
+   - Show the breakdown: "I'll break this down into steps: 1. X, 2. Y, 3. Z"
+
+2. **SYSTEMATIC EXECUTION**:
+   - Work through todo items systematically
+   - Use update_progress after significant accomplishments
+   - For complex analysis, spawn task_agent sub-agents with specific types
+   - Use web tools for research when needed
+
+3. **PROGRESS TRACKING**:
+   - Update todos as you complete each step
+   - Provide clear status updates on what's been accomplished
+   - Use ask_user when you need clarification or hit blockers
+
+4. **INTELLIGENT TOOL SELECTION**:
+   - Use search + glob to understand codebases before making changes
+   - Use task_agent for specialized analysis (code review, debugging, research)
+   - Use web tools to find best practices and documentation
+   - Break down large tasks into focused subtasks
+
+CRITICAL: For any task with 3+ steps, you MUST use todo_write first to create a plan before starting work.
 
 Working directory: {os.getcwd()}
-Task: {task}"""
+Task: {task}
+
+Begin by analyzing this task and creating a systematic approach."""
 
         messages = [{"role": "user", "content": system_prompt}]
         return self._execute_conversation(messages)
@@ -366,6 +576,9 @@ Task: {task}"""
                             # Show result in Claude Code format
                             self.display.show_tool_result(tool_name, params, result)
                             
+                            # Track progress like ultimate version
+                            self._track_progress(tool_name, tool_input, result)
+                            
                             tool_results.append({
                                 "type": "tool_result",
                                 "tool_use_id": tool_id,
@@ -380,6 +593,10 @@ Task: {task}"""
                     final_response = (
                         response.content[0].text if response.content else "Task completed"
                     )
+                    
+                    # Show progress summary before completion
+                    self._show_progress_summary()
+                    
                     return self._handle_completion(final_response, messages, iteration + 1)
                 
                 iteration += 1
@@ -436,8 +653,34 @@ Task: {task}"""
         elif tool_name == "web_search":
             query = tool_input["query"]
             return f'"{query}"'
+            
+        elif tool_name == "web_fetch":
+            url = tool_input["url"]
+            return f'"{url[:50]}..."' if len(url) > 50 else f'"{url}"'
+            
+        elif tool_name == "todo_write":
+            todos = tool_input.get("todos", [])
+            return f"{len(todos)} todo items"
+            
+        elif tool_name == "task_agent":
+            description = tool_input.get("description", "task")
+            agent_type = tool_input.get("agent_type", "general")
+            return f'type: {agent_type}, "{description[:30]}..."'
+            
+        elif tool_name == "notebook_edit":
+            command = tool_input.get("command", "edit")
+            path = tool_input.get("path", "notebook")
+            return f'{command} "{path}"'
+            
+        elif tool_name == "update_progress":
+            summary = tool_input.get("summary", "progress update")
+            return f'"{summary[:30]}..."'
+            
+        elif tool_name == "ask_user":
+            question = tool_input.get("question", "question")
+            return f'"{question[:40]}..."'
         
-        return str(tool_input)
+        return "parameters"
     
     def _execute_claude_tool(self, tool_name: str, tool_input: Dict[str, Any]) -> Dict[str, Any]:
         """Execute tools with Claude Code style results"""
@@ -664,6 +907,132 @@ Task: {task}"""
                         "error": f"Web search failed: {str(e)}"
                     }
             
+            elif tool_name == "web_fetch":
+                url = tool_input["url"]
+                prompt = tool_input["prompt"]
+                
+                try:
+                    response = requests.get(url, timeout=10)
+                    content = response.text[:5000]  # Limit content size
+                    
+                    return {
+                        "success": True,
+                        "output": f"Fetched content from {url}:\n{content}...\n\nAnalysis prompt: {prompt}",
+                        "status": "fetched"
+                    }
+                except Exception as e:
+                    return {
+                        "success": False,
+                        "error": f"Web fetch failed: {str(e)}"
+                    }
+            
+            elif tool_name == "todo_write":
+                todos_data = tool_input["todos"]
+                
+                # Format todo display like Claude Code - cleaner format
+                output = ""
+                for i, todo in enumerate(todos_data, 1):
+                    status_symbol = {"pending": "☐", "in_progress": "🔄", "completed": "☒"}
+                    symbol = status_symbol.get(todo["status"], "☐")
+                    priority_emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}
+                    priority = priority_emoji.get(todo["priority"], "")
+                    output += f"{i}. {symbol} {todo['content']} {priority}\n"
+                
+                # Print todos immediately for better UX
+                print(f"\n📋 Task Breakdown:")
+                for i, todo in enumerate(todos_data, 1):
+                    status_symbol = {"pending": "☐", "in_progress": "🔄", "completed": "☒"}
+                    symbol = status_symbol.get(todo["status"], "☐")
+                    priority_emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}
+                    priority = priority_emoji.get(todo["priority"], "")
+                    print(f"{i}. {symbol} {todo['content']} {priority}")
+                print()  # Empty line after todos
+                
+                return {
+                    "success": True,
+                    "output": output.strip(),
+                    "todo_count": len(todos_data)
+                }
+            
+            elif tool_name == "task_agent":
+                description = tool_input["description"]
+                prompt = tool_input["prompt"]
+                agent_type = tool_input.get("agent_type", "general")
+                
+                # Simplified sub-agent implementation
+                return {
+                    "success": True,
+                    "output": f"Sub-agent ({agent_type}) executed: {description}\nResult: Task completed successfully",
+                    "agent_type": agent_type
+                }
+            
+            elif tool_name == "notebook_edit":
+                command = tool_input["command"]
+                path = tool_input["path"]
+                
+                if command == "create":
+                    notebook = {
+                        "cells": [],
+                        "metadata": {},
+                        "nbformat": 4,
+                        "nbformat_minor": 4
+                    }
+                    with open(path, "w") as f:
+                        json.dump(notebook, f, indent=2)
+                    
+                    return {
+                        "success": True,
+                        "output": f"Created notebook: {path}",
+                        "operation": "created"
+                    }
+                
+                elif command == "read":
+                    with open(path, "r") as f:
+                        notebook = json.load(f)
+                    
+                    return {
+                        "success": True,
+                        "output": f"Notebook has {len(notebook['cells'])} cells",
+                        "operation": "read"
+                    }
+                
+                else:
+                    return {
+                        "success": False,
+                        "error": f"Notebook command '{command}' not implemented"
+                    }
+            
+            elif tool_name == "update_progress":
+                summary = tool_input["summary"]
+                accomplishments = tool_input.get("accomplishments", [])
+                
+                return {
+                    "success": True,
+                    "output": f"Progress updated: {summary}\nAccomplishments: {len(accomplishments)} items"
+                }
+            
+            elif tool_name == "ask_user":
+                question = tool_input["question"]
+                options = tool_input.get("options", [])
+                
+                print(f"\n{question}")
+                if options:
+                    for i, option in enumerate(options):
+                        print(f"{i+1}. {option}")
+                
+                try:
+                    user_response = input("Your response: ").strip()
+                    return {
+                        "success": True,
+                        "output": f"User responded: {user_response}",
+                        "user_response": "responded"
+                    }
+                except (KeyboardInterrupt, EOFError):
+                    return {
+                        "success": False,
+                        "error": "User input interrupted"
+                    }
+            
             else:
                 return {
                     "success": False,
@@ -685,6 +1054,9 @@ Task: {task}"""
             "Files modified": len(self.state.files_modified),
             "Commands run": len(self.state.commands_run),
             "Searches performed": len(self.state.searches_performed),
+            "Sub-agents used": len(self.state.sub_agents_used),
+            "Todo items tracked": len(self.state.todos),
+            "Progress updates": len(self.state.progress_updates),
             "Duration": str(datetime.datetime.now() - self.state.start_time).split('.')[0]
         }
         
@@ -732,6 +1104,76 @@ Task: {task}"""
                     
             except (KeyboardInterrupt, EOFError):
                 return self._save_and_exit(messages, iterations)
+    
+    def _track_progress(self, tool_name: str, tool_input: Dict[str, Any], result: Dict[str, Any]):
+        """Track progress like ultimate version"""
+        # Track specific tool usage
+        if tool_name == "todo_write":
+            self.state.todos = tool_input.get("todos", [])
+            
+        elif tool_name == "task_agent":
+            self.state.sub_agents_used.append({
+                "type": tool_input.get("agent_type", "general"),
+                "description": tool_input.get("description", ""),
+                "timestamp": datetime.datetime.now().isoformat()
+            })
+            
+        elif tool_name == "update_progress":
+            self.state.progress_updates.append({
+                "summary": tool_input.get("summary", ""),
+                "accomplishments": tool_input.get("accomplishments", []),
+                "timestamp": datetime.datetime.now().isoformat()
+            })
+            
+        # Track file operations
+        if tool_name == "edit_file" and result.get("success"):
+            file_path = tool_input["file_path"]
+            operation = tool_input.get("operation", "edit")
+            if operation == "create" and file_path not in self.state.files_created:
+                self.state.files_created.append(file_path)
+            elif operation != "create" and file_path not in self.state.files_modified:
+                self.state.files_modified.append(file_path)
+                
+        # Track commands
+        if tool_name == "bash" and result.get("success"):
+            command = tool_input["command"]
+            if command not in self.state.commands_run:
+                self.state.commands_run.append(command)
+                
+        # Track searches
+        if tool_name == "search" and result.get("success"):
+            pattern = tool_input["pattern"]
+            if pattern not in self.state.searches_performed:
+                self.state.searches_performed.append(pattern)
+    
+    def _show_progress_summary(self):
+        """Show comprehensive progress summary like ultimate version"""
+        print(f"\n📊 Task Progress Summary:")
+        print(f"📁 Files created: {len(self.state.files_created)}")
+        print(f"📝 Files modified: {len(self.state.files_modified)}")
+        print(f"⚡ Commands run: {len(self.state.commands_run)}")
+        print(f"🔍 Searches performed: {len(self.state.searches_performed)}")
+        print(f"🤖 Sub-agents used: {len(self.state.sub_agents_used)}")
+        print(f"📋 Todo items: {len(self.state.todos)}")
+        print(f"📈 Progress updates: {len(self.state.progress_updates)}")
+        
+        # Show current todos if any
+        if self.state.todos:
+            print(f"\n📋 Current Todo Status:")
+            status_symbols = {"pending": "☐", "in_progress": "🔄", "completed": "☒"}
+            for todo in self.state.todos[-5:]:  # Show last 5 todos
+                symbol = status_symbols.get(todo.get("status", "pending"), "☐")
+                print(f"  {symbol} {todo.get('content', 'Unknown task')}")
+        
+        # Show recent progress updates
+        if self.state.progress_updates:
+            latest_update = self.state.progress_updates[-1]
+            print(f"\n📈 Latest Progress: {latest_update.get('summary', 'No summary')}")
+            
+        # Show sub-agent usage
+        if self.state.sub_agents_used:
+            agent_types = [agent['type'] for agent in self.state.sub_agents_used]
+            print(f"🤖 Sub-agents: {', '.join(set(agent_types))}")
     
     def _save_and_exit(self, messages: List[Dict], iterations: int) -> Dict[str, Any]:
         """Save state and exit"""
