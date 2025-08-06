@@ -418,7 +418,7 @@ class UltimateSWEAgent:
 
                 # Get response with full tool suite
                 response = self.client.messages.create(
-                    model="claude-3-5-sonnet-20241022",
+                    model="claude-3-7-sonnet-20250219",
                     max_tokens=4000,
                     messages=messages,
                     tools=self.tools,
